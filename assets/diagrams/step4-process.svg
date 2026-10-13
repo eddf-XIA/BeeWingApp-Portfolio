@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="1200" height="560" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#E11D48"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94A3B8"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="560" rx="18" fill="#FFFFFF"/>
+  <rect x="0.5" y="0.5" width="1199" height="559" rx="18" fill="none" stroke="#E2E8F0"/>
+  <text x="40" y="46" font-size="22" font-weight="700" fill="#0F172A">Step 4: supervising a multi-minute deep-learning job without freezing the UI</text>
+  <text x="40" y="72" font-size="14" fill="#64748B">Two streams, two meanings: structured events on a private channel, everything else is log text.</text>
+
+  <!-- lifelines -->
+  <g font-size="14" font-weight="700" text-anchor="middle">
+    <rect x="90" y="96" width="200" height="40" rx="8" fill="#0F172A"/><text x="190" y="121" fill="#FFFFFF">GUI thread</text>
+    <rect x="430" y="96" width="220" height="40" rx="8" fill="#475569"/><text x="540" y="121" fill="#FFFFFF">pool thread (supervisor)</text>
+    <rect x="800" y="96" width="260" height="40" rx="8" fill="#E11D48"/><text x="930" y="121" fill="#FFFFFF">child process · DLC + PyTorch</text>
+  </g>
+  <g stroke="#CBD5E1" stroke-width="2" stroke-dasharray="4 5">
+    <line x1="190" y1="136" x2="190" y2="530"/>
+    <line x1="540" y1="136" x2="540" y2="530"/>
+    <line x1="930" y1="136" x2="930" y2="530"/>
+  </g>
+
+  <g font-size="12.5" fill="#334155">
+    <!-- preflight -->
+    <line x1="190" y1="166" x2="534" y2="166" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+    <text x="200" y="158">start() returns at once</text>
+    <rect x="552" y="172" width="250" height="44" rx="6" fill="#F1F5F9"/>
+    <text x="562" y="190">preflight: folder rules, model config,</text>
+    <text x="562" y="208">inputs present — else refuse, start nothing</text>
+    <text x="562" y="232" fill="#64748B" font-size="11.5">snapshot existing result files (size, mtime)</text>
+
+    <line x1="540" y1="266" x2="924" y2="266" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+    <text x="596" y="258">spawn by path · clean environment · same 4 args as from source</text>
+
+    <!-- events -->
+    <line x1="930" y1="292" x2="546" y2="292" stroke="#E11D48" stroke-width="2" marker-end="url(#r)"/>
+    <text x="700" y="286" fill="#BE123C">{"event":"start"} … {"event":"progress"}</text>
+    <line x1="540" y1="314" x2="196" y2="314" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+    <text x="230" y="308">Qt signal → bar + "x of N"</text>
+
+    <line x1="930" y1="344" x2="546" y2="344" stroke="#94A3B8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#g)"/>
+    <text x="640" y="338" fill="#64748B">stderr: library output, tqdm bars → log lines only</text>
+    <text x="640" y="362" fill="#64748B" font-size="11.5">non-JSON lines on the event channel become log text</text>
+
+    <line x1="930" y1="394" x2="546" y2="394" stroke="#E11D48" stroke-width="2" marker-end="url(#r)"/>
+    <text x="760" y="388" fill="#BE123C">{"event":"result"} {"event":"done"}</text>
+
+    <rect x="552" y="406" width="270" height="62" rx="6" fill="#FFF1F2" stroke="#FDA4AF"/>
+    <text x="562" y="426" fill="#9F1239" font-weight="700">verify on disk, in the parent</text>
+    <text x="562" y="444">a non-empty CSV this run wrote —</text>
+    <text x="562" y="460">a leftover from an earlier run is not success</text>
+
+    <line x1="540" y1="490" x2="196" y2="490" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+    <text x="230" y="484">succeeded · or failed with the reason + log</text>
+  </g>
+
+  <!-- side notes -->
+  <g font-size="12" fill="#334155">
+    <rect x="40" y="186" width="130" height="94" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="52" y="206" font-weight="700" fill="#0F172A">The user can</text>
+    <text x="52" y="226">switch pages</text>
+    <text x="52" y="244">fix wings in Step 2</text>
+    <text x="52" y="262">or press Stop</text>
+    <rect x="1000" y="186" width="170" height="146" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="1012" y="206" font-weight="700" fill="#0F172A">Stop / failure</text>
+    <text x="1012" y="226">cancel flag + process</text>
+    <text x="1012" y="244">handle share one lock,</text>
+    <text x="1012" y="262">so Stop before spawn</text>
+    <text x="1012" y="280">means no child at all.</text>
+    <text x="1012" y="304">A child that dies silently</text>
+    <text x="1012" y="322">is reported as a failure.</text>
+    <rect x="1000" y="350" width="170" height="92" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="1012" y="370" font-weight="700" fill="#0F172A">No resume, on purpose</text>
+    <text x="1012" y="390">a partial CSV cannot be</text>
+    <text x="1012" y="408">proven complete, so an</text>
+    <text x="1012" y="426">interrupted run re-runs.</text>
+  </g>
+</svg>
