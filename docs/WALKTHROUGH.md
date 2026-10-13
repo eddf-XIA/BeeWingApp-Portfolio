@@ -2,6 +2,8 @@
 
 ← [Back to the overview](../README.md)
 
+> The real-specimen example is on [its own page](REAL_EXAMPLE.md). This page uses synthetic images only.
+
 Everything below was made from **synthetic** inputs. An invented wing is
 drawn on a card with four public ArUco markers (OpenCV `DICT_4X4_50`), and a
 hand-held photo is simulated. The application screenshots show the real

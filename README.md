@@ -6,9 +6,9 @@
 
 `Python` · `OpenCV` · `PySide6 / Qt 6` · `DeepLabCut 3` · `PyTorch` · `pytest` · `PyInstaller`
 
-<img src="assets/synthetic/pipeline.gif" width="720" alt="Animated walkthrough on a synthetic specimen card: raw photo, markers detected, corrected square image, standardized orientation, illustrative points">
+<img src="assets/real/real_workflow.gif" width="720" alt="Animated walkthrough on a real bumblebee forewing: original photo, three detected markers and the inferred fourth corner, corrected image, standardized orientation, 13 model-predicted landmarks">
 
-<sub>Every image in this repository is synthetic: a drawn wing on a card with public ArUco markers. No laboratory photographs, labels or model outputs are shown.</sub>
+<sub>A real bumblebee left forewing going through the real pipeline: original photo → markers found → perspective-corrected → standardized → 13 landmarks predicted by the trained model (model output, not validated ground truth).</sub>
 
 </div>
 
@@ -24,7 +24,27 @@
 | **Evidence** | **1,248** automated tests. In the last full gate, **1,229 passed and 0 failed**, including 29 that launch the packaged executables. The new desktop app's outputs were proven **byte-identical** (SHA-256) to the original app's on every image and CSV. The packaged build checks itself and **refuses to ship** if it doesn't match its source. |
 | **Status** | Release candidate `2.0.0-rc1`, built and verified. One step remains: a clean-machine acceptance run on a second computer. |
 
-> **About this repository.** This is a public portfolio. The production source code, all research images, the training data and labels, the trained model weights and all scientific results are **private**. They belong to an ongoing research project and are not included here. What you will find is the design, the engineering reasoning, verified engineering metrics, and screenshots of the real application running on synthetic data.
+> **About this repository.** This is a public portfolio. One approved pair of real forewing photos (left and right of the same specimen) is shown, with the application's genuine outputs for that pair. Specimen identifiers and image metadata have been removed. Every other image is synthetic. The production source code, all other research images, the training data and labels, the trained model weights and all scientific results are **private**.
+
+---
+
+## A real specimen, end to end
+
+<img src="assets/real/real_pair_stages.jpg" alt="Real left and right forewings: original photo with three detected markers and the inferred fourth corner, perspective-corrected image, standardized orientation">
+
+<img src="assets/real/real_pair_landmarks.jpg" alt="Close-ups of the 13 model-predicted landmarks on both standardized wings, with the low-confidence landmark 1 drawn as a grey ring">
+
+**Full resolution:** [side-by-side LF/RF comparison of all four stages (4483 × 2470)](assets/real/real_pair_full_resolution.jpg)
+
+The pair was run through the real application (Steps 1, 3 and 4), with the trained DeepLabCut model doing the inference. **Nothing in these images was drawn or adjusted by hand.** The marker outlines come from the pipeline's own detector. The landmark positions and confidence values are read straight from the CSV the model wrote.
+
+What the run shows:
+
+- **Step 1 corrected both photos automatically, even though it detected only 3 of the 4 markers on each.** The top-right marker is visible in both photos, but the detector didn't pick it up. The pipeline inferred that corner from the other three (amber ring, dashed edges), so neither photo needed manual correction.
+- **Step 3 put both wings the same way round.** The left wing was mirrored and the right wing was rotated 180°. Both now have the base on the left and the tip on the right, so the 13 landmarks line up between them.
+- **Step 4 predicted all 13 landmarks on both wings** (2 images in 13.9 s on a laptop CPU, including model load). These are **model predictions, not validated ground truth**. The other 12 on each wing come with likelihood ≥ 0.77. **Landmark 1, near the wing base, comes out at only 0.03 (LF) and 0.05 (RF).** It is drawn as a grey hollow ring rather than hidden. The output keeps the model's own confidence for every point, so weak predictions can be found and checked downstream.
+
+The full coordinate table and the details of how the images were prepared are on **[the real-example page](docs/REAL_EXAMPLE.md)**.
 
 ---
 
@@ -34,23 +54,23 @@
 
 | Step | Computer-vision task | Engineering idea |
 |---|---|---|
-| **1 · Correct** | Find the ArUco markers on the specimen card and compute the outer quadrilateral. Warp it to a fixed square so every pixel has the same physical size. | Runs on a worker thread. Progress comes from the real work, image by image. Metadata writes are idempotent, so re-running never duplicates a row. |
+| **1 · Correct** | Find the ArUco markers on the specimen card and compute the outer quadrilateral, inferring the fourth corner if one marker is missed. Warp it to a fixed square so every pixel has the same physical size. | Runs on a worker thread. Progress comes from the real work, image by image. Metadata writes are idempotent, so re-running never duplicates a row. |
 | **2 · Fix by hand** | When markers are hidden, blurred or out of frame, a person clicks the four outer corners and the same warp is applied. | A native canvas whose coordinates are always image pixels, at any window size. After a restart, the queue is rebuilt from what is on disk. |
 | **3 · Standardize** | Mirror left wings and rotate right wings 180° so every wing faces the same way before landmarking. | Up-to-date status is checked by filename, not by count. One new image makes the step "out of date" even when the totals match. |
 | **4 · Analyse** | A DeepLabCut 3 model (HRNet backbone, PyTorch, CPU) predicts 13 wing-vein landmarks, each with x, y and a confidence value. | Runs in a separate process with a private JSON event channel. Success is checked on disk by the parent. |
 
+### When detection fails (synthetic example)
+
+The real pair didn't need Step 2, so the fallback is shown on a synthetic card.
+
 <table>
 <tr>
-<td width="50%"><img src="assets/synthetic/01_raw_photo.jpg" alt="Synthetic raw photo"><br><sub><b>Input.</b> A hand-held photo: tilted, uneven light.</sub></td>
-<td width="50%"><img src="assets/synthetic/02_markers_detected.jpg" alt="Detected markers and outer quadrilateral"><br><sub><b>Step 1.</b> Markers detected, outer corners resolved.</sub></td>
-</tr>
-<tr>
-<td><img src="assets/synthetic/06_detection_failed.jpg" alt="Detection failed: two markers hidden"><br><sub><b>Exception.</b> Glare and a fingertip hide two markers, so the photo goes to the manual queue.</sub></td>
-<td><img src="assets/synthetic/07_manual_corners.jpg" alt="Four corners clicked by hand"><br><sub><b>Step 2.</b> A person clicks four corners in a fixed order. The same warp follows.</sub></td>
+<td width="50%"><img src="assets/synthetic/06_detection_failed.jpg" alt="Synthetic photo: two markers hidden"><br><sub><b>Exception.</b> Glare and a fingertip hide two markers, so the photo goes to the manual queue.</sub></td>
+<td width="50%"><img src="assets/synthetic/07_manual_corners.jpg" alt="Four corners clicked by hand"><br><sub><b>Step 2.</b> A person clicks four corners in a fixed order. The same warp follows.</sub></td>
 </tr>
 </table>
 
-More pictures, including every application page, are in **[the visual walkthrough](docs/WALKTHROUGH.md)**.
+More pictures, including every application page on a synthetic collection, are in **[the visual walkthrough](docs/WALKTHROUGH.md)**.
 
 ---
 
@@ -102,7 +122,7 @@ Each item is one problem I hit, how I fixed it, and how the fix is checked. Full
 
 ## Verified engineering metrics
 
-These numbers come from the project's own test records and from runs I repeated while preparing this page. They are **engineering** measurements made on synthetic data. They are not scientific or model-accuracy results, and none are reported here. Where each one comes from is in [TESTING.md](docs/TESTING.md).
+These numbers come from the project's own test records and from runs I repeated while preparing this page. They are **engineering** measurements, made on synthetic data except for the one real pair. They are not scientific or model-accuracy results: a single pair's confidence values are not a validation, and no accuracy figures are reported here. Where each one comes from is in [TESTING.md](docs/TESTING.md).
 
 | Metric | Value |
 |---|---|
@@ -116,6 +136,7 @@ These numbers come from the project's own test records and from runs I repeated 
 | Test-suite runtime after fixing the widget leak | 1,335 s → 299 s, same 776 tests |
 | Packaged build self-check | 35 checks, 0 failed |
 | End-to-end acceptance from the packaged executables | 23 of 23 checks, including real DeepLabCut inference: **70 s for 10 synthetic images** on CPU |
+| Real forewing pair through the app (run from source) | 2 of 2 auto-corrected, 2 standardized, 13 landmarks each; Step 4 in **13.9 s** including model load |
 | Layout audit | 56 page × size × state combinations, 0 clipping problems |
 | Design record | 36 architecture decision records, 3 recorded findings |
 
@@ -141,8 +162,9 @@ I built this for a university entomology research workflow, as its sole human de
 | Public here | Private (not in this repository) |
 |---|---|
 | Design, architecture and decision write-ups | Production source code and its git history |
-| Diagrams I drew for this page | All specimen photographs and lab data |
-| Synthetic images (a drawn wing on a card with public ArUco markers) | Training images, landmark labels, model weights |
+| Diagrams I drew for this page | All other specimen photographs and lab data |
+| **One approved real forewing pair** and its genuine outputs (identifiers and metadata removed) | Training images, landmark labels, model weights |
+| Synthetic images (a drawn wing on a card with public ArUco markers) | Specimen identifiers, collection metadata, species and dates |
 | Screenshots of the app running on synthetic data | Model evaluation and any scientific results |
 | Engineering and test metrics | The packaged application and its archives |
 
