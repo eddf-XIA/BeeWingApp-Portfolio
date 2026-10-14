@@ -54,9 +54,11 @@ font metrics, so text never overflows there.
 
 | Metric | Value | Source |
 |---|---|---|
-| Tests collected | 1,248 in 34 modules | `pytest --collect-only`, re-run 2026-10-13 |
-| Last full gate | 1,229 passed, 0 failed, 2 skipped, 209 subtests | project progress record, Phase 10 |
-| Fast suite | 1,127 passed, 0 failed, 2 skipped, 192 subtests, 150 s | re-run 2026-10-13 (excludes 119 tests marked `slow`) |
+| Tests collected | 1,248 in 34 modules, at the latest commit | `pytest --collect-only`, re-run 2026-10-13 |
+| Latest full-suite run | 1,229 passed, 0 failed, 2 skipped, 209 subtests, 662 s, with the packaged build present | project progress record, Phase 10 (2026-09-20) |
+| Tests added since that run | 17 (release-script tests, not marked `slow`) | repository history; 1,229 + 2 skipped + 17 = 1,248 |
+| Fast suite | 1,127 passed, 0 failed, 2 skipped, 192 subtests, 150 s | re-run 2026-10-13. Excludes the 119 tests marked `slow` and includes the 17 added since the full run |
+| Legacy vs desktop parity | 22 cases, all passing | part of the full-suite run (marked `slow`); scope below |
 | Tests against the packaged artefact | 29 passed | release-candidate record |
 | Self-check of the release candidate | 35 checks, 0 failed | release-candidate record |
 | End-to-end acceptance from the artefact | 23 of 23; real inference 70 s for 10 synthetic images (CPU) | Phase 10 record |
@@ -74,10 +76,41 @@ All timings were measured on the development laptop. They describe how
 responsive the software is, not how accurate the model is. No model-accuracy,
 validation or scientific results are reported in this portfolio.
 
+### Points and counts
+
+Two different sets of points are involved, and they are never added together:
+
+- **4 reference corners** for geometry. Step 1 takes the outer corner of each
+  of the four ArUco markers. If one marker isn't detected, it infers that
+  corner from the other three. These 4 points define the perspective warp.
+- **13 anatomical landmarks** on the wing. Step 4's DeepLabCut model predicts
+  them, each with x, y and a confidence value.
+
+## What is verified and what is not
+
+| Kind of evidence | What it covers | Status |
+|---|---|---|
+| **Automated tests** | Pipeline contracts, desktop behaviour, failure and restart handling, the packaged executables | Passed on the development machine (figures above) |
+| **Parity** | One synthetic collection driven through both front ends in the same environment. Corrected, hand-corrected and standardized images are SHA-256 identical, and metadata is row-identical. The landmark CSV is identical through a **stand-in** analysis process | Passed. It shows that both front ends call the same science the same way. It does **not** compare real DeepLabCut output, and it uses no real specimen photos |
+| **Packaged-build acceptance** | Steps 1–4 from the built executables, with real DeepLabCut inference on 10 synthetic images | 23 of 23 checks, on the development machine |
+| **Hands-on acceptance** | A person using the app on the real Windows platform | Repeated sessions during development. Each defect found became a regression test |
+| **Real specimens** | One approved LF/RF pair, run from source | Shown on [the real-example page](REAL_EXAMPLE.md). It is not a validation |
+
 ### Still open
 
 - **Clean-machine acceptance:** a run on a second Windows account with no
   Python on `PATH` and a fresh user profile is still required before
-  `2.0.0-rc1` becomes `2.0.0`.
+  `2.0.0-rc1` becomes `2.0.0`. Until then, nothing here shows that the
+  package works on a machine other than the one it was built on.
 - **Code signing:** deliberately deferred. The first launch on a new machine
   shows a SmartScreen prompt.
+
+### Known limitations
+
+- **CPU only.** The bundled PyTorch is the CPU build, so Step 4 takes
+  seconds per image (70 s for 10 images in the acceptance run).
+- **Windows only** for the packaged build. The source also runs elsewhere.
+- **About 3.2 GB**, mostly PyTorch and the model.
+- **One collection at a time** per workspace.
+- **No resume.** An interrupted Step 4 starts over (see
+  [ENGINEERING_DECISIONS.md](ENGINEERING_DECISIONS.md#4-an-interrupted-analysis-is-re-run-never-resumed)).

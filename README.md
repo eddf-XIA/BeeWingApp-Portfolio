@@ -2,6 +2,8 @@
 
 # Bee Wing Lab: computer vision for bumblebee wing morphometrics
 
+**Houchunxiao (Byron) Xia** · research software for a university entomology research group
+
 **A Windows desktop application that turns raw specimen photographs into analysis-ready wing-landmark coordinates: OpenCV marker-based perspective correction, a human-in-the-loop fallback, and DeepLabCut pose estimation in an isolated process.**
 
 `Python` · `OpenCV` · `PySide6 / Qt 6` · `DeepLabCut 3` · `PyTorch` · `pytest` · `PyInstaller`
@@ -19,10 +21,10 @@
 | | |
 |---|---|
 | **Problem** | Wing-shape studies need the same anatomical points measured on hundreds of specimen photos. The photos are hand-held, so they are tilted, at different scales, and a mix of left and right wings. Marking points by hand is slow and inconsistent. |
-| **What I built** | A four-step pipeline and desktop app: **(1)** detect ArUco markers and warp each photo to a fixed-scale square, **(2)** send any photo the detector can't handle to a fast manual 4-click correction queue, **(3)** put left and right wings in the same orientation, **(4)** run a deep-learning pose model that writes 13 landmark coordinates per wing to CSV. |
+| **What I built** | A four-step pipeline and desktop app: **(1)** detect the four ArUco markers on the specimen card and use their **4 outer corners** to warp each photo to a fixed-scale square, **(2)** send any photo the detector can't handle to a fast manual 4-click correction queue, **(3)** put left and right wings in the same orientation, **(4)** run a DeepLabCut pose model I trained, which writes **13 anatomical landmarks** per wing (x, y, confidence) to CSV. |
 | **Hard parts** | Keeping the UI responsive during multi-minute PyTorch inference. Never losing or duplicating a measurement across crashes, restarts and re-runs. Shipping all of it to lab computers with no Python installed. |
-| **Evidence** | **1,248** automated tests. In the last full gate, **1,229 passed and 0 failed**, including 29 that launch the packaged executables. The new desktop app's outputs were proven **byte-identical** (SHA-256) to the original app's on every image and CSV. The packaged build checks itself and **refuses to ship** if it doesn't match its source. |
-| **Status** | Release candidate `2.0.0-rc1`, built and verified. One step remains: a clean-machine acceptance run on a second computer. |
+| **Evidence** | **1,248** automated tests collected. Latest full-suite run: **1,229 passed, 0 failed**, 2 skipped, including 29 tests that launch the packaged executables. On a synthetic collection, the desktop app's images and landmark CSV were **SHA-256 byte-identical** to the original Streamlit app's. The packaged build checks itself and **refuses to ship** if it doesn't match its source. |
+| **Status** | Release candidate `2.0.0-rc1`, built and checked on the development machine. **Not yet done:** the clean-machine acceptance run on a second Windows account, which is required before `2.0.0`. Code signing is deferred. |
 
 > **About this repository.** This is a public portfolio. One approved pair of real forewing photos (left and right of the same specimen) is shown, with the application's genuine outputs for that pair. Specimen identifiers and image metadata have been removed. Every other image is synthetic. The production source code, all other research images, the training data and labels, the trained model weights and all scientific results are **private**.
 
@@ -54,10 +56,10 @@ The full coordinate table and the details of how the images were prepared are on
 
 | Step | Computer-vision task | Engineering idea |
 |---|---|---|
-| **1 · Correct** | Find the ArUco markers on the specimen card and compute the outer quadrilateral, inferring the fourth corner if one marker is missed. Warp it to a fixed square so every pixel has the same physical size. | Runs on a worker thread. Progress comes from the real work, image by image. Metadata writes are idempotent, so re-running never duplicates a row. |
+| **1 · Correct** | Find the four ArUco markers on the specimen card and take the outer corner of each, giving the 4 reference corners. If one marker is missed, infer its corner from the other three. Warp it to a fixed square so every pixel has the same physical size. | Runs on a worker thread. Progress comes from the real work, image by image. Metadata writes are idempotent, so re-running never duplicates a row. |
 | **2 · Fix by hand** | When markers are hidden, blurred or out of frame, a person clicks the four outer corners and the same warp is applied. | A native canvas whose coordinates are always image pixels, at any window size. After a restart, the queue is rebuilt from what is on disk. |
 | **3 · Standardize** | Mirror left wings and rotate right wings 180° so every wing faces the same way before landmarking. | Up-to-date status is checked by filename, not by count. One new image makes the step "out of date" even when the totals match. |
-| **4 · Analyse** | A DeepLabCut 3 model (HRNet backbone, PyTorch, CPU) predicts 13 wing-vein landmarks, each with x, y and a confidence value. | Runs in a separate process with a private JSON event channel. Success is checked on disk by the parent. |
+| **4 · Analyse** | A DeepLabCut 3 model (HRNet backbone, PyTorch, CPU) predicts 13 anatomical wing-vein landmarks, each with x, y and a confidence value. | Runs in a separate process with a private JSON event channel. Success is checked on disk by the parent. |
 
 ### When detection fails (synthetic example)
 
@@ -126,10 +128,10 @@ These numbers come from the project's own test records and from runs I repeated 
 
 | Metric | Value |
 |---|---|
-| Automated tests (collected) | **1,248** across 34 test modules |
-| Last full gate | **1,229 passed, 0 failed**, 2 skipped (opt-in real-model run; one focus test the headless platform can't host) |
-| Fast suite, re-run on 2026-10-13 | 1,127 passed, 0 failed, 2 skipped, in 150 s |
-| Legacy vs desktop parity | SHA-256 **byte-identical** for every corrected, hand-corrected and standardized image and for the landmark CSV (via a stand-in analysis child), plus row-identical metadata |
+| Automated tests collected | **1,248** across 34 test modules, at the latest commit |
+| Latest full-suite run (2026-09-20) | **1,229 passed, 0 failed**, 2 skipped (opt-in real-model run; one focus test the headless platform can't host). It ran before 17 release-script tests were added |
+| Fast suite, re-run on 2026-10-13 | 1,127 passed, 0 failed, 2 skipped, in 150 s. It includes those 17 tests and excludes the 119 marked `slow` |
+| Legacy vs desktop parity | On one synthetic collection: SHA-256 **byte-identical** corrected, hand-corrected and standardized images, row-identical metadata, and a byte-identical landmark CSV. Step 4 was compared through a stand-in analysis process, not real DeepLabCut inference |
 | Page switch, idle | **1.03 ms** average over 140 switches |
 | Page switch while Step 1 processes a collection | mean 25.2 ms, worst 98.7 ms over 235 switches (budget 250 ms) |
 | Workspace scan, 2,100 images | ~209 ms, moved off the GUI thread for that reason |
@@ -140,20 +142,27 @@ These numbers come from the project's own test records and from runs I repeated 
 | Layout audit | 56 page × size × state combinations, 0 clipping problems |
 | Design record | 36 architecture decision records, 3 recorded findings |
 
+**Automated checks are not real-machine acceptance.** Everything above ran on the development machine. The clean-account acceptance run is still open, the build is unsigned, and Step 4 runs on CPU only. The full list of limitations is in [TESTING.md](docs/TESTING.md#what-is-verified-and-what-is-not).
+
 ---
 
 ## My role and how it was built
 
-I built this for a university entomology research workflow, as its sole human developer. I:
+I built this software for a university entomology research group, as its sole human developer.
 
-- **wrote the original image-processing research code** (marker-based correction, manual fix, orientation) as notebooks;
-- **trained the landmark model** that Step 4 runs. The training data, labels, weights and evaluation results stay private;
-- **defined and directed the application**, first as a Streamlit app and then as the native desktop app: requirements, the scientific behaviour that must not change, the phase plan, acceptance criteria, and the architecture decision log;
-- **made the product decisions** recorded in that log: e.g. no saved queue position, no resume for interrupted analysis, removing zoom from manual correction after using it;
-- **reviewed and accepted every checkpoint, and tested each build by hand.** That hands-on testing found defects the automated suite had passed (touchpad zoom, focus-driven scrolling, a silently dead button). Each became a regression test;
-- **ran the packaging and verification** of the Windows distribution, and the researcher-facing guide.
+**My own technical work**
 
-**AI-assisted development.** The application was developed with an AI coding agent (Claude Code), which wrote much of its code, tests and project documentation under my direction. 32 of the private repository's 33 commits are co-authored by it. My part was the research code it started from, the model, the requirements and constraints, the decisions, the review, and the testing against real use. I'm stating this plainly because directing and verifying AI-written engineering to this standard is a core part of what this project demonstrates.
+- **Image processing in Python and OpenCV.** I wrote the original research code as notebooks: ArUco detection, ordering the 4 outer corners and inferring a missed one, the perspective warp to a fixed-scale square, the manual 4-click fallback, and LF/RF orientation standardization. That code became the pipeline both front ends share unchanged.
+- **The landmark model.** I labelled the training images, then trained, evaluated and ran the 13-landmark DeepLabCut 3 model (HRNet backbone, PyTorch) that Step 4 uses. The training data, labels, weights and evaluation results stay private.
+- **Reproducible GPU training on UW–Madison's CHTC.** I built an Apptainer container (DeepLabCut 3 with CUDA) from DeepLabCut's official image. I wrote the HTCondor submit files and a job script that sets the project up on whichever GPU node it lands on. Training, evaluation and batch inference are scripted as jobs, submitted over SSH from the cluster's Linux access point.
+
+**What I directed, with AI-assisted implementation**
+
+- **Desktop architecture.** I specified the move from Streamlit to PySide6 and its constraints: the validated science must not change, the old app stays runnable until parity is proven, pages persist, Steps 1 and 3 run in the background, manual correction uses a native `QGraphicsView`, and DeepLabCut runs in an isolated process. I also set the phase plan and acceptance criteria, and reviewed the decision log.
+- **Data consistency and error recovery.** Raw photos are never modified, and a run that processed nothing never counts as success. A lab researcher reported a run that silently processed zero images and later re-read its own outputs as new photos. I reproduced it, and it led to the folder-safety rules and output checks described in [ARCHITECTURE.md](docs/ARCHITECTURE.md#5-data-integrity). Product calls such as "no saved queue position" and "no resume for an interrupted analysis" were mine.
+- **Testing and deployment.** I reviewed every checkpoint and tested each build by hand. That hands-on testing found defects the automated suite had passed, such as touchpad zoom, focus-driven scrolling and a silently dead button, and each became a regression test. I ran the PyInstaller packaging, the self-check and the release gate for the Windows build.
+
+**AI assistance.** An AI coding agent (Claude Code) wrote much of the application's code, tests and documentation from my specifications, and every checkpoint went through my review. 32 of the private repository's 33 commits are co-authored by it.
 
 ---
 
@@ -174,4 +183,4 @@ No license is offered. The ownership and licensing of the underlying research so
 
 ## Contact
 
-Houchunxiao Xia. Reach me through [my GitHub profile](https://github.com/eddf-XIA).
+Houchunxiao (Byron) Xia. Reach me through [my GitHub profile](https://github.com/eddf-XIA).

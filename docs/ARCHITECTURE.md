@@ -150,8 +150,9 @@ off the GUI thread, and gives way if Step 1 has already filled the queue.
 
 | Area | Choices |
 |---|---|
-| Computer vision | OpenCV (ArUco detection, perspective transforms), NumPy |
-| Pose estimation | DeepLabCut 3 (PyTorch engine), HRNet backbone, CPU inference |
+| Computer vision | OpenCV (ArUco detection; the 4 outer marker corners define the perspective transform), NumPy |
+| Pose estimation | DeepLabCut 3 (PyTorch engine), HRNet backbone, 13 anatomical landmarks per wing, CPU inference in the app |
+| Model training | GPU jobs on a university HTCondor cluster, in an Apptainer container |
 | Desktop | PySide6 / Qt 6: `QMainWindow`, `QStackedWidget`, `QGraphicsView`, `QThreadPool`, QSS |
 | Data | pandas, CSV with multi-level headers |
 | Testing | pytest + unittest, headless Qt, real Windows platform for visual acceptance, Playwright for the legacy web front end |
